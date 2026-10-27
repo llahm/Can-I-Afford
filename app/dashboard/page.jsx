@@ -9,8 +9,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/calculations").then((r) => r.json()),
-      fetch("/api/daily-match").then((r) => r.json())
+      fetch("/api/calculations", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/daily-match", { cache: "no-store" }).then((r) => r.json())
     ]).then(([calcData, matchData]) => {
       setRecords(calcData.records || []);
       if (!matchData.error) setDailyMatch(matchData);
