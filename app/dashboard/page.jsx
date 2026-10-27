@@ -4,8 +4,9 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   const [records, setRecords] = useState([]);
+  const [userId, setUserId] = useState(null);
   const [dailyMatch, setDailyMatch] = useState(null);
-  const [filterMode, setFilterMode] = useState("all"); // "all" | "affordable" | "higher"
+  const [filterMode, setFilterMode] = useState("all");
   const [loading, setLoading] = useState(true);
 
   const loadSanctuaryData = useCallback(async () => {
@@ -19,7 +20,24 @@ export default function DashboardPage() {
       const calcData = await calcRes.json();
       const matchData = await matchRes.json();
 
-      setRecords(calcData.records || []);
+      const currentUserId = calcData.userId || "usr_demo";
+      setUserId(currentUserId);
+
+      const storageKey = `sanctuary_calcs_${currentUserId}`;
+      const localItems = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const serverItems = calcData.records || [];
+
+      // Merge local + server records without duplicates so nothing ever disappears
+      const mergedMap = new Map();
+      for (const item of [...localItems, ...serverItems]) {
+        if (item && item.id && !mergedMap.has(item.id)) {
+          mergedMap.set(item.id, item);
+        }
+      }
+      const mergedList = Array.from(mergedMap.values());
+      localStorage.setItem(storageKey, JSON.stringify(mergedList));
+      setRecords(mergedList);
+
       if (!matchData.error) setDailyMatch(matchData);
     } catch {
       // ignore
@@ -37,7 +55,13 @@ export default function DashboardPage() {
       method: "DELETE",
     });
     if (res.ok) {
-      setRecords((prev) => prev.filter((item) => item.id !== id));
+      setRecords((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        if (userId) {
+          localStorage.setItem(`sanctuary_calcs_${userId}`, JSON.stringify(next));
+        }
+        return next;
+      });
     }
   }
 
@@ -53,7 +77,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold text-cocoa-900">Your Financial Sanctuary</h1>
           <p className="text-cocoa-700 mt-1">
-            Review all {records.length} of your saved comparisons and explore today’s 24-hour peaceful place match.
+            Showing {filteredRecords.length} of {records.length} saved comparisons.
           </p>
         </div>
         <Link
@@ -111,7 +135,7 @@ export default function DashboardPage() {
           </h2>
 
           {records.length > 0 && (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => setFilterMode("all")}
