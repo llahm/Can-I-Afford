@@ -1,11 +1,27 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
 function SignInForm() {
   const router = useRouter();
+
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.user) {
+          router.replace("/dashboard");
+        } else {
+          setCheckingAuth(false);
+        }
+      })
+      .catch(() => setCheckingAuth(false));
+  }, [router]);
+
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next") || "/dashboard";
   const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
@@ -46,6 +62,10 @@ function SignInForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingAuth) {
+    return <p className="text-center py-12 text-cocoa-700">Checking session...</p>;
   }
 
   return (
